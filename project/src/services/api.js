@@ -82,15 +82,63 @@ class ApiService {
     });
   }
 
+  async addComplaintResponse(complaintId, message) {
+    return this.request(`/complaints/${complaintId}/response`, {
+      method: 'POST',
+      body: { message },
+    });
+  }
+
+  async resolveComplaint(complaintId) {
+    return this.request(`/complaints/${complaintId}/resolve`, {
+      method: 'PATCH',
+    });
+  }
+
+  async updateComplaintStatus(complaintId, status) {
+    return this.request(`/complaints/${complaintId}/status`, {
+      method: 'PATCH',
+      body: { status },
+    });
+  }
+
   // Club endpoints
   async getClubs() {
     return this.request('/clubs');
   }
 
-  async createClub(clubData) {
+  async createClub(clubData, imageFile = null) {
+    const formData = new FormData();
+    
+    // Add club data
+    Object.keys(clubData).forEach(key => {
+      if (clubData[key] !== null && clubData[key] !== undefined) {
+        formData.append(key, clubData[key]);
+      }
+    });
+    
+    // Add image file if provided
+    if (imageFile) {
+      formData.append('clubImage', imageFile);
+    }
+
     return this.request('/clubs', {
       method: 'POST',
-      body: clubData,
+      body: formData,
+      headers: {
+        'Authorization': `Bearer ${this.getAuthToken()}`,
+      },
+    });
+  }
+
+  async getClubMembers(clubId) {
+    return this.request(`/clubs/${clubId}/members`);
+  }
+
+  async approveJoinRequest(clubId, requestId, status) {
+    return this.request(`/clubs/${clubId}/join-requests/${requestId}`, {
+      method: 'PATCH',
+      body: { status },
     });
   }
 
@@ -99,10 +147,27 @@ class ApiService {
     return this.request('/posts');
   }
 
-  async createPost(postData) {
+  async createPost(postData, mediaFile = null) {
+    const formData = new FormData();
+    
+    // Add post data
+    Object.keys(postData).forEach(key => {
+      if (postData[key] !== null && postData[key] !== undefined) {
+        formData.append(key, postData[key]);
+      }
+    });
+    
+    // Add media file if provided
+    if (mediaFile) {
+      formData.append('media', mediaFile);
+    }
+
     return this.request('/posts', {
       method: 'POST',
-      body: postData,
+      body: formData,
+      headers: {
+        'Authorization': `Bearer ${this.getAuthToken()}`,
+      },
     });
   }
 
@@ -111,10 +176,30 @@ class ApiService {
     return this.request('/elections');
   }
 
-  async createElection(electionData) {
+  async createElection(electionData, files = []) {
+    const formData = new FormData();
+    
+    // Add election data
+    Object.keys(electionData).forEach(key => {
+      if (key === 'candidates') {
+        formData.append(key, JSON.stringify(electionData[key]));
+      } else {
+        formData.append(key, electionData[key]);
+      }
+    });
+    
+    // Add candidate images
+    files.forEach((file, index) => {
+      formData.append('candidateImages', file);
+    });
+
     return this.request('/elections', {
       method: 'POST',
-      body: electionData,
+      body: formData,
+      headers: {
+        // Don't set Content-Type, let browser set it with boundary
+        'Authorization': `Bearer ${this.getAuthToken()}`,
+      },
     });
   }
 

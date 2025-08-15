@@ -10,7 +10,7 @@ const userSchema = new mongoose.Schema({
 	department: { type: String, required: true },
 	year: { type: String, required: true },
 	studentId: { type: String, required: true, unique: true }, // Unique username
-	role: { type: String, enum: ["student", "admin"], default: "student" },
+	role: { type: String, enum: ["student", "admin", "president", "student_din", "academic_affairs", "clubs_associations", "dining_services", "sports_culture"], default: "student" },
 	joinedClubs: [{ type: mongoose.Schema.Types.ObjectId, ref: "Club" }],
 	votedElections: [{ type: mongoose.Schema.Types.ObjectId, ref: "Election" }],
 	createdAt: { type: Date, default: Date.now },

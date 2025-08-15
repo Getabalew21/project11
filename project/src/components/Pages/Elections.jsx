@@ -35,8 +35,13 @@ export function Elections() {
 	const [newCandidate, setNewCandidate] = useState({
 		name: "",
 		department: "",
-		profileImage: null,
+		year: "",
+		studentId: "",
+		platform: "",
+		bio: "",
+		profileImage: null
 	});
+	const [candidateFiles, setCandidateFiles] = useState([]);
 
 	useEffect(() => {
 		fetchElections();
@@ -61,16 +66,38 @@ export function Elections() {
 		if (
 			!newCandidate.name ||
 			!newCandidate.department ||
-			!newCandidate.profileImage
+			!newCandidate.year ||
+			!newCandidate.studentId
 		) {
-			toast.error("Candidate name, department, and image are required");
+			toast.error("All candidate fields are required");
 			return;
 		}
+		
+		const candidateWithFile = {
+			...newCandidate,
+			votes: 0,
+			platform: newCandidate.platform.split(',').map(p => p.trim()).filter(p => p)
+		};
+		
 		setNewElection((prev) => ({
 			...prev,
-			candidates: [...prev.candidates, { ...newCandidate, votes: 0 }],
+			candidates: [...prev.candidates, candidateWithFile],
 		}));
-		setNewCandidate({ name: "", department: "", profileImage: null });
+		
+		// Store the file separately
+		if (newCandidate.profileImage) {
+			setCandidateFiles([...candidateFiles, newCandidate.profileImage]);
+		}
+		
+		setNewCandidate({ 
+			name: "", 
+			department: "", 
+			year: "",
+			studentId: "",
+			platform: "",
+			bio: "",
+			profileImage: null 
+		});
 	};
 
 	const handleProfileImageChange = (e) => {
@@ -89,17 +116,11 @@ export function Elections() {
 		}
 
 		try {
-			const electionData = {
-				...newElection,
-				status: "Pending",
-				totalVotes: 0,
-				eligibleVoters: 12547,
-			};
-
-			await apiService.createElection(electionData);
+			await apiService.createElection(newElection, candidateFiles);
 			await fetchElections();
 			toast.success("Election created successfully!");
 		} catch (error) {
+			console.error('Election creation error:', error);
 			toast.error("Failed to create election");
 		}
 
@@ -111,6 +132,7 @@ export function Elections() {
 			candidates: [],
 		});
 		setShowNewElectionForm(false);
+		setCandidateFiles([]);
 	};
 
 	const handleVote = async (electionId, candidateId) => {
@@ -306,9 +328,9 @@ export function Elections() {
 								{/* Candidates Form */}
 								<div className="mt-4">
 									<h3 className="text-lg font-medium text-gray-900 mb-2">
-										Candidates
+										Add Candidates
 									</h3>
-									<div className="flex gap-4">
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
 										<input
 											type="text"
 											placeholder="Candidate Name"
@@ -319,7 +341,7 @@ export function Elections() {
 													name: e.target.value,
 												})
 											}
-											className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+											className="px-4 py-2 border border-gray-300 rounded-lg"
 										/>
 										<input
 											type="text"
@@ -331,13 +353,65 @@ export function Elections() {
 													department: e.target.value,
 												})
 											}
-											className="w-full px-4 py-2 border border-gray-300 rounded-lg"
+											className="px-4 py-2 border border-gray-300 rounded-lg"
 										/>
+										<input
+											type="text"
+											placeholder="Year (e.g., 3rd Year)"
+											value={newCandidate.year}
+											onChange={(e) =>
+												setNewCandidate({
+													...newCandidate,
+													year: e.target.value,
+												})
+											}
+											className="px-4 py-2 border border-gray-300 rounded-lg"
+										/>
+										<input
+											type="text"
+											placeholder="Student ID"
+											value={newCandidate.studentId}
+											onChange={(e) =>
+												setNewCandidate({
+													...newCandidate,
+													studentId: e.target.value,
+												})
+											}
+											className="px-4 py-2 border border-gray-300 rounded-lg"
+										/>
+									</div>
+									<div className="grid grid-cols-1 gap-4 mb-4">
+										<input
+											type="text"
+											placeholder="Platform (comma-separated, e.g., Student Welfare, Academic Excellence)"
+											value={newCandidate.platform}
+											onChange={(e) =>
+												setNewCandidate({
+													...newCandidate,
+													platform: e.target.value,
+												})
+											}
+											className="px-4 py-2 border border-gray-300 rounded-lg"
+										/>
+										<textarea
+											placeholder="Candidate Bio"
+											value={newCandidate.bio}
+											onChange={(e) =>
+												setNewCandidate({
+													...newCandidate,
+													bio: e.target.value,
+												})
+											}
+											className="px-4 py-2 border border-gray-300 rounded-lg"
+											rows="2"
+										/>
+									</div>
+									<div className="flex gap-4 items-end">
 										<input
 											type="file"
 											accept="image/*"
 											onChange={handleProfileImageChange}
-											className="border border-gray-300 rounded-lg"
+											className="flex-1 border border-gray-300 rounded-lg px-4 py-2"
 										/>
 										<button
 											type="button"
@@ -346,26 +420,66 @@ export function Elections() {
 											Add Candidate
 										</button>
 									</div>
-									<ul className="mt-2">
-										{newElection.candidates.map((candidate, index) => (
-											<li key={index} className="text-gray-700">
-												{candidate.name} ({candidate.department}) -{" "}
-												{candidate.votes} votes
-											</li>
-										))}
-									</ul>
+									
+									{/* Display added candidates */}
+									{newElection.candidates.length > 0 && (
+										<div className="mt-4">
+											<h4 className="font-medium text-gray-900 mb-2">Added Candidates:</h4>
+											<div className="space-y-2">
+												{newElection.candidates.map((candidate, index) => (
+													<div key={index} className="bg-gray-50 p-3 rounded-lg">
+														<div className="flex justify-between items-start">
+															<div>
+																<p className="font-medium">{candidate.name}</p>
+																<p className="text-sm text-gray-600">
+																	{candidate.department} - {candidate.year} - {candidate.studentId}
+																</p>
+																{candidate.platform && candidate.platform.length > 0 && (
+																	<p className="text-sm text-gray-600">
+																		Platform: {candidate.platform.join(', ')}
+																	</p>
+																)}
+															</div>
+															<button
+																onClick={() => {
+																	setNewElection(prev => ({
+																		...prev,
+																		candidates: prev.candidates.filter((_, i) => i !== index)
+																	}));
+																	setCandidateFiles(files => files.filter((_, i) => i !== index));
+																}}
+																className="text-red-600 hover:text-red-700 text-sm">
+																Remove
+															</button>
+														</div>
+													</div>
+												))}
+											</div>
+										</div>
+									)}
 								</div>
 
 								{/* Create Election Button */}
 								<div className="flex gap-4">
 									<button
 										type="submit"
-										className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
-										Create Election
+										disabled={newElection.candidates.length < 2}
+										className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+										Create Election ({newElection.candidates.length} candidates)
 									</button>
 									<button
 										type="button"
-										onClick={() => setShowNewElectionForm(false)}
+										onClick={() => {
+											setShowNewElectionForm(false);
+											setNewElection({
+												title: "",
+												description: "",
+												startDate: "",
+												endDate: "",
+												candidates: [],
+											});
+											setCandidateFiles([]);
+										}}
 										className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors">
 										Cancel
 									</button>
@@ -589,21 +703,25 @@ export function Elections() {
 												/>
 												<div className="flex-1">
 													<h3 className="text-lg font-semibold text-gray-900">
-														{candidate.name} ({candidate.department})
+														{candidate.name}
 													</h3>
-													<p className="text-gray-600">{candidate.position}</p>
-													<p className="text-sm font-medium text-gray-700 mb-1">
-														Votes:{" "}
-														{candidate.votes
-															? candidate.votes.toLocaleString()
-															: 0}
+													<p className="text-gray-600">
+														{candidate.department} - {candidate.year}
 													</p>
+													<p className="text-sm text-gray-500 mb-2">
+														ID: {candidate.studentId}
+													</p>
+													{candidate.bio && (
+														<p className="text-sm text-gray-600 mb-2">
+															{candidate.bio}
+														</p>
+													)}
 													<div className="mt-2">
 														<p className="text-sm font-medium text-gray-700 mb-1">
 															Platform:
 														</p>
 														<div className="flex flex-wrap gap-1">
-															{candidate.platform.map((item, index) => (
+															{(candidate.platform || []).map((item, index) => (
 																<span
 																	key={index}
 																	className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
@@ -615,27 +733,25 @@ export function Elections() {
 												</div>
 												<div className="text-right">
 													<p className="text-2xl font-bold text-gray-900">
-														{candidate.votes
-															? candidate.votes.toLocaleString()
-															: 0}
+														{candidate.votes || 0}
 													</p>
 													<p className="text-sm text-gray-500">votes</p>
 												</div>
 											</div>
-											<motion.button
-												whileHover={{ scale: 1.02 }}
-												whileTap={{ scale: 0.98 }}
-												onClick={() =>
-													handleVote(selectedElection.id, candidate.id)
-												}
-												className="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-												disabled={votedElections.has(selectedElection.id)}>
-												{votedElections.has(selectedElection.id)
-													? "Already Voted"
-													: `Vote for ${candidate.name}`}
-											</motion.button>
-										</div>
-									))}
+											{selectedElection.status === "active" && (
+												<motion.button
+													whileHover={{ scale: 1.02 }}
+													whileTap={{ scale: 0.98 }}
+													onClick={() =>
+														handleVote(selectedElection.id, candidate.id)
+													}
+													className="w-full mt-4 bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+													disabled={votedElections.has(selectedElection.id)}>
+													{votedElections.has(selectedElection.id)
+														? "Already Voted"
+														: `Vote for ${candidate.name}`}
+												</motion.button>
+											)}
 								</div>
 							</div>
 						</motion.div>

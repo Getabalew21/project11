@@ -3,22 +3,27 @@
 import express from "express";
 import Club from "../models/Club.js";
 import { authenticateToken, requireAdmin } from "../middleware/auth.js";
+import upload from "../middleware/upload.js";
 
 const router = express.Router();
 
 // Create a new club (Admin only)
-router.post("/", authenticateToken, async (req, res) => {
+router.post("/", authenticateToken, upload.single('clubImage'), async (req, res) => {
 	try {
-		if (req.user.role !== "admin" && !req.user.isAdmin) {
+		if (req.user.role !== "admin" && req.user.role !== "clubs_associations" && !req.user.isAdmin) {
 			return res.status(403).json({ message: "Admin access required" });
 		}
 
-		const { name, category, description, image, founded } = req.body;
+		const { name, category, description, founded } = req.body;
+		
+		// Handle uploaded image
+		const imageUrl = req.file ? `/uploads/${req.file.filename}` : 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=400';
+
 		const club = new Club({
 			name,
 			category,
 			description,
-			image,
+			image: imageUrl,
 			founded,
 		});
 
@@ -100,7 +105,7 @@ router.post("/:id/join", authenticateToken, async (req, res) => {
 // Approve/Reject join request (Admin only)
 router.patch("/:clubId/join-requests/:requestId", authenticateToken, async (req, res) => {
 	try {
-		if (req.user.role !== "admin" && !req.user.isAdmin) {
+		if (req.user.role !== "admin" && req.user.role !== "clubs_associations" && !req.user.isAdmin) {
 			return res.status(403).json({ message: "Admin access required" });
 		}
 
@@ -124,6 +129,27 @@ router.patch("/:clubId/join-requests/:requestId", authenticateToken, async (req,
 
 		await club.save();
 		res.status(200).json({ message: `Join request ${status} successfully` });
+	} catch (err) {
+		res.status(500).json({ message: err.message });
+	}
+});
+
+// Get club members with live count
+router.get("/:id/members", async (req, res) => {
+	try {
+		const club = await Club.findById(req.params.id)
+			.populate("members", "name email department year studentId")
+			.select("members name");
+		
+		if (!club) {
+			return res.status(404).json({ message: "Club not found" });
+		}
+		
+		res.status(200).json({
+			clubName: club.name,
+			memberCount: club.members.length,
+			members: club.members
+		});
 	} catch (err) {
 		res.status(500).json({ message: err.message });
 	}

@@ -4,6 +4,9 @@ import dotenv from "dotenv";
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
 
 // Import routes
 import authRoutes from "./routes/authRoutes.js";
@@ -15,10 +18,19 @@ import electionRoutes from "./routes/electionRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import statsRoutes from "./routes/statsRoutes.js";
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 5000;
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+	fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 // Use CORS middleware
 app.use(cors({
@@ -26,6 +38,9 @@ app.use(cors({
 	credentials: true
 }));
 app.use(express.json());
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 console.log("MongoDB URI:", process.env.MONGODB_URI);
 

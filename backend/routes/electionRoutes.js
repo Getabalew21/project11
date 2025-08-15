@@ -4,32 +4,46 @@ import express from "express";
 import Election from "../models/Election.js";
 import User from "../models/User.js";
 import { authenticateToken, requireAdmin } from "../middleware/auth.js";
+import upload from "../middleware/upload.js";
 
 const router = express.Router();
 
 // Create a new election (Admin only)
-router.post("/", authenticateToken, async (req, res) => {
+router.post("/", authenticateToken, upload.array('candidateImages', 10), async (req, res) => {
 	try {
-		if (req.user.role !== "admin" && !req.user.isAdmin) {
+		if (req.user.role !== "admin" && req.user.role !== "president" && !req.user.isAdmin) {
 			return res.status(403).json({ message: "Admin access required" });
 		}
 
-		const { title, description, startDate, endDate, candidates, eligibleVoters } = req.body;
+		const { title, description, startDate, endDate, eligibleVoters } = req.body;
+		let { candidates } = req.body;
+		
+		// Parse candidates if it's a string
+		if (typeof candidates === 'string') {
+			candidates = JSON.parse(candidates);
+		}
 		
 		// Validate required fields
 		if (!title || !description || !startDate || !endDate || !candidates || candidates.length < 2) {
 			return res.status(400).json({ message: "All fields are required and at least 2 candidates needed" });
 		}
 
+		// Process uploaded images
+		const processedCandidates = candidates.map((candidate, index) => {
+			const imageFile = req.files && req.files[index];
+			return {
+				...candidate,
+				votes: 0,
+				profileImage: imageFile ? `/uploads/${imageFile.filename}` : candidate.profileImage || 'https://images.pexels.com/photos/2182970/pexels-photo-2182970.jpeg?auto=compress&cs=tinysrgb&w=400'
+			};
+		});
+
 		const election = new Election({
 			title,
 			description,
 			startDate: new Date(startDate),
 			endDate: new Date(endDate),
-			candidates: candidates.map(candidate => ({
-				...candidate,
-				votes: 0
-			})),
+			candidates: processedCandidates,
 			eligibleVoters: eligibleVoters || 12547,
 			createdBy: req.user._id,
 			status: new Date(startDate) <= new Date() ? "Ongoing" : "Pending"

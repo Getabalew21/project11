@@ -52,52 +52,32 @@ export const AuthProvider = ({ children }) => {
       setLoading(true);
 
       // Admin login
-      if (adminRole) {
-        const credential = adminCredentials.find(
-          (cred) => cred.email.toLowerCase() === email.toLowerCase() && cred.role === adminRole
-        );
+      if (email === "AdminDBU" && password === "Admin123#") {
+        try {
+          const response = await apiService.login({ 
+            email, 
+            password, 
+            adminRole: "admin" 
+          });
+          
+          const adminUser = {
+            ...response.user,
+            token: response.token,
+            isAdmin: true,
+          };
 
-        if (!credential || credential.password !== password) {
+          // Find matching credential for permissions
+          const credential = adminCredentials.find(cred => cred.role === "president");
+          
+          setUser(adminUser);
+          setAdminCredential(credential);
+          localStorage.setItem("user", JSON.stringify(adminUser));
+          localStorage.setItem("adminCredential", JSON.stringify(credential));
+          
+          return adminUser;
+        } catch (error) {
           throw new Error("Invalid admin credentials");
         }
-
-        // Create a mock JWT token for admin
-        const mockToken = btoa(JSON.stringify({
-          userId: credential.id,
-          email: credential.email,
-          role: credential.role,
-          isAdmin: true,
-          exp: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
-        }));
-
-        const adminUser = {
-          id: credential.id,
-          name: credential.name,
-          email: credential.email,
-          role: credential.role,
-          isAdmin: true,
-          token: mockToken,
-        };
-
-        // Log admin access
-        const adminLog = {
-          timestamp: new Date().toISOString(),
-          adminName: credential.name,
-          adminEmail: credential.email,
-          action: "Admin Login",
-          ipAddress: "127.0.0.1",
-        };
-
-        const existingLogs = JSON.parse(localStorage.getItem("admin_logs") || "[]");
-        existingLogs.push(adminLog);
-        localStorage.setItem("admin_logs", JSON.stringify(existingLogs));
-
-        setUser(adminUser);
-        setAdminCredential(credential);
-        localStorage.setItem("user", JSON.stringify(adminUser));
-        localStorage.setItem("adminCredential", JSON.stringify(credential));
-        
-        return adminUser;
       }
 
       // Real student login via API
@@ -115,26 +95,7 @@ export const AuthProvider = ({ children }) => {
           
           return studentUser;
         } catch (error) {
-          // Fallback to mock login for development
-          const studentUser = {
-            id: "student_" + Date.now(),
-            name: "Student User",
-            email: email,
-            role: "student",
-            studentId: "DBU-2024-001",
-            isAdmin: false,
-            token: btoa(JSON.stringify({
-              userId: "student_" + Date.now(),
-              email: email,
-              role: "student",
-              exp: Date.now() + (7 * 24 * 60 * 60 * 1000)
-            })),
-          };
-
-          setUser(studentUser);
-          localStorage.setItem("user", JSON.stringify(studentUser));
-          
-          return studentUser;
+          throw error;
         }
       }
 

@@ -3,14 +3,15 @@
 import express from "express";
 import Post from "../models/Post.js";
 import { authenticateToken, requireAdmin } from "../middleware/auth.js";
+import upload from "../middleware/upload.js";
 
 const router = express.Router();
 
 // Create a new post (Admin only)
-router.post("/", authenticateToken, async (req, res) => {
+router.post("/", authenticateToken, upload.single('media'), async (req, res) => {
 	try {
 		// Allow both admin users and users with admin role
-		if (req.user.role !== "admin" && !req.user.isAdmin) {
+		if (req.user.role !== "admin" && req.user.role !== "president" && req.user.role !== "student_din" && !req.user.isAdmin) {
 			return res.status(403).json({ message: "Admin access required" });
 		}
 
@@ -20,11 +21,13 @@ router.post("/", authenticateToken, async (req, res) => {
 			content,
 			date,
 			category,
-			image,
 			location,
 			time,
 			important,
 		} = req.body;
+
+		// Handle uploaded media
+		const mediaUrl = req.file ? `/uploads/${req.file.filename}` : null;
 
 		const post = new Post({
 			type,
@@ -32,7 +35,7 @@ router.post("/", authenticateToken, async (req, res) => {
 			content,
 			date,
 			category,
-			image,
+			image: mediaUrl,
 			location,
 			time,
 			important,

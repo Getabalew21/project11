@@ -61,9 +61,48 @@ router.post("/register", async (req, res) => {
 // Login
 router.post("/login", async (req, res) => {
 	try {
-		const { email, password } = req.body;
+		const { email, password, adminRole } = req.body;
 
-		const user = await User.findOne({ email });
+		// Handle admin login
+		if (adminRole) {
+			// Check for admin credentials
+			const adminCredentials = {
+				"AdminDBU": {
+					password: "Admin123#",
+					role: "admin",
+					name: "System Administrator",
+					email: "admin@dbu.edu.et"
+				}
+			};
+
+			if (email === "AdminDBU" && password === "Admin123#") {
+				const token = jwt.sign(
+					{ userId: "admin_001", role: "admin" },
+					process.env.JWT_SECRET || "fallback_secret",
+					{ expiresIn: "7d" }
+				);
+
+				return res.json({
+					message: "Admin login successful",
+					token,
+					user: {
+						id: "admin_001",
+						name: "System Administrator",
+						email: "admin@dbu.edu.et",
+						role: "admin",
+						isAdmin: true,
+					},
+				});
+			} else {
+				return res.status(401).json({ message: "Invalid admin credentials" });
+			}
+		}
+
+		// Regular user login
+		const user = await User.findOne({ 
+			$or: [{ email }, { studentId: email }] 
+		});
+		
 		if (!user) {
 			return res.status(401).json({ message: "Invalid credentials" });
 		}
